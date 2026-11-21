@@ -33,6 +33,7 @@ import {
   Eye,
   EyeOff,
   Search,
+  SlidersHorizontal,
 } from 'lucide-react';
 
 const STORAGE_KEY = 'tenno_ledger_state_v1';
@@ -289,6 +290,7 @@ function createInitialState(withSamples = true) {
   return {
     version: 1,
     items: withSamples ? SAMPLE_ITEMS : [],
+    defaultTags: [...SUGGESTED_TAGS],
     resets: {
       daily: DEFAULT_DAILY_TASKS.map((t) => ({ ...t, done: false, hidden: false, custom: false })),
       weekly: DEFAULT_WEEKLY_TASKS.map((t) => ({ ...t, done: false, hidden: false, custom: false })),
@@ -304,6 +306,7 @@ function normalizeState(parsed) {
   return {
     version: 1,
     items: Array.isArray(parsed.items) ? parsed.items : [],
+    defaultTags: Array.isArray(parsed.defaultTags) ? parsed.defaultTags : [...SUGGESTED_TAGS],
     resets: {
       daily: Array.isArray(parsed.resets?.daily) && parsed.resets.daily.length > 0 ? parsed.resets.daily : base.resets.daily,
       weekly: Array.isArray(parsed.resets?.weekly) && parsed.resets.weekly.length > 0 ? parsed.resets.weekly : base.resets.weekly,
@@ -356,13 +359,24 @@ function getResetCountdowns() {
   };
 }
 
-function QuickAddBar({ onAddItem, defaultCategory = 'warframe' }) {
+function QuickAddBar({
+  onAddItem,
+  defaultCategory = 'warframe',
+  existingItems = [],
+  defaultTags = SUGGESTED_TAGS,
+  onAddDefaultTag,
+  onRemoveDefaultTag,
+  onResetDefaultTags,
+}) {
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState(defaultCategory);
+  const [categoryTouched, setCategoryTouched] = useState(false);
   const [status, setStatus] = useState('queued');
   const [priority, setPriority] = useState('medium');
   const [tags, setTags] = useState([]);
   const [tagInput, setTagInput] = useState('');
+  const [editingDefaultTags, setEditingDefaultTags] = useState(false);
+  const [newDefaultTagInput, setNewDefaultTagInput] = useState('');
   const [expanded, setExpanded] = useState(false);
   const [notes, setNotes] = useState('');
   const [source, setSource] = useState('');
@@ -374,6 +388,97 @@ function QuickAddBar({ onAddItem, defaultCategory = 'warframe' }) {
   const [modRankCurrent, setModRankCurrent] = useState(0);
   const [modRankMax, setModRankMax] = useState(10);
   const [fodderRank, setFodderRank] = useState(0);
+
+  // Sync category when switching between tabs if user hasn't manually changed it or started typing
+  useEffect(() => {
+    if (!categoryTouched && !title.trim()) {
+      setCategory(defaultCategory);
+    }
+  }, [defaultCategory, categoryTouched, title]);
+
+  // All known tags ranked by usage across existing items + default tags
+  const knownTagPool = useMemo(() => {
+    const counts = new Map();
+    existingItems.forEach((item) => {
+      (item.tags || []).forEach((t) => {
+        counts.set(t, (counts.get(t) || 0) + 1);
+      });
+    });
+    defaultTags.forEach((t) => {
+      if (!counts.has(t)) counts.set(t, 0);
+    });
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([tag, count]) => ({ tag, count }));
+  }, [existingItems, defaultTags]);
+
+  // Live tag predictions under the tag input
+  const predictedTags = useMemo(() => {
+    const q = tagInput.trim().replace(/^#/, '').toLowerCase();
+    if (!q) return [];
+    return knownTagPool
+      .filter(({ tag }) => !tags.some((selected) => selected.toLowerCase() === tag.toLowerCase()))
+      .filter(({ tag }) => tag.toLowerCase().includes(q))
+      .slice(0, 6);
+  }, [tagInput, knownTagPool, tags]);
+
+  // Live title & metadata predictions under the title input
+  const titlePredictions = useMemo(() => {
+    const q = title.trim().toLowerCase();
+    if (q.length < 2) return null;
+
+    const matchingItems = existingItems.filter((item) => {
+      const hay = [item.title, item.source, ...(item.tags || [])].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+
+    // Keyword heuristics + matches from existing items
+    const suggestedTagSet = new Set();
+    const categoryScores = new Map();
+
+    matchingItems.forEach((item) => {
+      categoryScores.set(item.category, (categoryScores.get(item.category) || 0) + 2);
+      (item.tags || []).forEach((t) => suggestedTagSet.add(t));
+    });
+
+    if (/\bprime\b/i.test(q)) suggestedTagSet.add('Prime');
+    if (/\b(lith|meso|neo|axi|requiem|omnia)\b/i.test(q)) {
+      categoryScores.set('relic', (categoryScores.get('relic') || 0) + 3);
+      suggestedTagSet.add('Radshare');
+    }
+    if (/\b(galvanized|primed|archon|amalgam|riven|umbral)\b/i.test(q)) {
+      categoryScores.set('mod', (categoryScores.get('mod') || 0) + 3);
+      suggestedTagSet.add('Endo');
+    }
+    if (/\bincarnon\b/i.test(q)) {
+      categoryScores.set('weapon', (categoryScores.get('weapon') || 0) + 2);
+      suggestedTagSet.add('Incarnon');
+    }
+    if (/\b(helminth|subsume)\b/i.test(q)) {
+      categoryScores.set('warframe', (categoryScores.get('warframe') || 0) + 2);
+      suggestedTagSet.add('Helminth');
+    }
+    if (/\bfodder\b/i.test(q)) {
+      categoryScores.set('fodder', (categoryScores.get('fodder') || 0) + 3);
+    }
+
+    const bestCategory = Array.from(categoryScores.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+    const filteredSuggestedTags = Array.from(suggestedTagSet)
+      .filter((t) => !tags.some((selected) => selected.toLowerCase() === t.toLowerCase()))
+      .slice(0, 5);
+
+    const similarEntries = matchingItems.slice(0, 3);
+
+    if (!bestCategory && filteredSuggestedTags.length === 0 && similarEntries.length === 0) {
+      return null;
+    }
+
+    return {
+      bestCategory: bestCategory && bestCategory !== category ? bestCategory : null,
+      suggestedTags: filteredSuggestedTags,
+      similarEntries,
+    };
+  }, [title, existingItems, tags, category]);
 
   const addTag = (raw) => {
     const clean = raw.trim().replace(/^#/, '');
@@ -387,9 +492,41 @@ function QuickAddBar({ onAddItem, defaultCategory = 'warframe' }) {
   const handleTagKeyDown = (e) => {
     if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault();
-      addTag(tagInput);
+      if (predictedTags.length > 0 && tagInput.trim() && predictedTags[0].tag.toLowerCase().startsWith(tagInput.trim().replace(/^#/, '').toLowerCase())) {
+        addTag(predictedTags[0].tag);
+      } else {
+        addTag(tagInput);
+      }
     } else if (e.key === 'Backspace' && !tagInput && tags.length > 0) {
       setTags((prev) => prev.slice(0, -1));
+    }
+  };
+
+  const handleCreateDefaultTag = () => {
+    const clean = newDefaultTagInput.trim().replace(/^#/, '');
+    if (!clean) return;
+    onAddDefaultTag?.(clean);
+    setNewDefaultTagInput('');
+  };
+
+  const applySimilarEntryTemplate = (entry) => {
+    setTitle(entry.title);
+    setCategory(entry.category);
+    setCategoryTouched(true);
+    setPriority(entry.priority || 'medium');
+    if (entry.source && !source) setSource(entry.source);
+    if (Array.isArray(entry.tags)) {
+      setTags((prev) => {
+        const merged = [...prev];
+        entry.tags.forEach((t) => {
+          if (!merged.some((m) => m.toLowerCase() === t.toLowerCase())) merged.push(t);
+        });
+        return merged;
+      });
+    }
+    if (entry.category === 'relic') {
+      if (entry.relicEra) setRelicEra(entry.relicEra);
+      if (entry.relicRefinement) setRelicRefinement(entry.relicRefinement);
     }
   };
 
@@ -413,7 +550,9 @@ function QuickAddBar({ onAddItem, defaultCategory = 'warframe' }) {
     const trimmedTitle = title.trim();
     if (!trimmedTitle) return;
     const pendingTag = tagInput.trim().replace(/^#/, '');
-    const finalTags = pendingTag && !tags.includes(pendingTag) ? [...tags, pendingTag] : tags;
+    const finalTags = pendingTag && !tags.some((t) => t.toLowerCase() === pendingTag.toLowerCase())
+      ? [...tags, pendingTag]
+      : tags;
     const now = new Date().toISOString();
 
     onAddItem({
@@ -434,6 +573,7 @@ function QuickAddBar({ onAddItem, defaultCategory = 'warframe' }) {
     });
 
     setTitle('');
+    setCategoryTouched(false);
     setTags([]);
     setTagInput('');
     setNotes('');
@@ -447,7 +587,7 @@ function QuickAddBar({ onAddItem, defaultCategory = 'warframe' }) {
     <form onSubmit={handleSubmit} className="rounded-xl border border-[#263144] bg-[#131822]/95 shadow-lg">
       <div className="p-3 sm:p-4 space-y-3">
         <div className="flex flex-col lg:flex-row gap-2.5">
-          <div className="flex-1">
+          <div className="flex-1 space-y-1.5">
             <input
               type="text"
               value={title}
@@ -455,12 +595,63 @@ function QuickAddBar({ onAddItem, defaultCategory = 'warframe' }) {
               placeholder="Quick add a frame, mod, relic, fodder weapon, or farm goal..."
               className="w-full rounded-lg border border-[#263144] bg-[#0b0e14] px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-[#d4af37] focus:outline-none"
             />
+
+            {/* Live Title / Filter Prediction Strip */}
+            {titlePredictions && (
+              <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-[#263144]/90 bg-[#0b0e14]/90 px-2.5 py-1.5 text-[11px]">
+                <span className="inline-flex items-center gap-1 text-slate-400 mr-0.5">
+                  <Sparkles className="w-3 h-3 text-cyan-400" />
+                  <span>Suggestions:</span>
+                </span>
+
+                {titlePredictions.bestCategory && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCategory(titlePredictions.bestCategory);
+                      setCategoryTouched(true);
+                    }}
+                    className="inline-flex items-center gap-1 rounded border border-cyan-500/40 bg-cyan-500/15 px-2 py-0.5 text-cyan-300 hover:bg-cyan-500/25"
+                  >
+                    Set Category: {CATEGORIES.find((c) => c.id === titlePredictions.bestCategory)?.label}
+                  </button>
+                )}
+
+                {titlePredictions.suggestedTags.map((st) => (
+                  <button
+                    key={st}
+                    type="button"
+                    onClick={() => addTag(st)}
+                    className="rounded border border-[#d4af37]/40 bg-[#d4af37]/10 px-1.5 py-0.5 text-[#f5c451] hover:bg-[#d4af37]/20"
+                  >
+                    +#{st}
+                  </button>
+                ))}
+
+                {titlePredictions.similarEntries.map((entry) => (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    onClick={() => applySimilarEntryTemplate(entry)}
+                    title="Copy title, category, source & tags from existing item"
+                    className="inline-flex items-center gap-1 rounded border border-[#263144] bg-[#131822] px-2 py-0.5 text-slate-300 hover:border-slate-500 hover:text-white"
+                  >
+                    <span className="truncate max-w-[180px]">{entry.title}</span>
+                    <span className="text-[10px] text-slate-500">({CATEGORIES.find((c) => c.id === entry.category)?.label})</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-          <div className="flex flex-wrap sm:flex-nowrap gap-2">
+
+          <div className="flex flex-wrap sm:flex-nowrap items-start gap-2">
             <select
               value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="rounded-lg border border-[#263144] bg-[#0b0e14] px-3 py-2 text-sm text-slate-200 focus:border-[#d4af37] focus:outline-none"
+              onChange={(e) => {
+                setCategory(e.target.value);
+                setCategoryTouched(true);
+              }}
+              className="rounded-lg border border-[#263144] bg-[#0b0e14] px-3 py-2.5 text-sm text-slate-200 focus:border-[#d4af37] focus:outline-none"
             >
               {CATEGORIES.map((c) => (
                 <option key={c.id} value={c.id}>{c.label}</option>
@@ -469,7 +660,7 @@ function QuickAddBar({ onAddItem, defaultCategory = 'warframe' }) {
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="rounded-lg border border-[#263144] bg-[#0b0e14] px-3 py-2 text-sm text-slate-200 focus:border-[#d4af37] focus:outline-none"
+              className="rounded-lg border border-[#263144] bg-[#0b0e14] px-3 py-2.5 text-sm text-slate-200 focus:border-[#d4af37] focus:outline-none"
             >
               {STATUS_OPTIONS.map((s) => (
                 <option key={s.id} value={s.id}>{s.label}</option>
@@ -478,7 +669,7 @@ function QuickAddBar({ onAddItem, defaultCategory = 'warframe' }) {
             <select
               value={priority}
               onChange={(e) => setPriority(e.target.value)}
-              className="rounded-lg border border-[#263144] bg-[#0b0e14] px-3 py-2 text-sm text-slate-200 focus:border-[#d4af37] focus:outline-none"
+              className="rounded-lg border border-[#263144] bg-[#0b0e14] px-3 py-2.5 text-sm text-slate-200 focus:border-[#d4af37] focus:outline-none"
             >
               {PRIORITY_OPTIONS.map((p) => (
                 <option key={p.id} value={p.id}>{p.label} Priority</option>
@@ -487,7 +678,7 @@ function QuickAddBar({ onAddItem, defaultCategory = 'warframe' }) {
             <button
               type="button"
               onClick={() => setExpanded((p) => !p)}
-              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
                 expanded
                   ? 'border-cyan-500/60 bg-cyan-500/15 text-cyan-300'
                   : 'border-[#263144] bg-[#1a2130] text-slate-300 hover:border-slate-500 hover:text-white'
@@ -505,7 +696,7 @@ function QuickAddBar({ onAddItem, defaultCategory = 'warframe' }) {
             <button
               type="submit"
               disabled={!title.trim()}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#d4af37] px-4 py-2 text-sm font-semibold text-[#07090d] hover:bg-[#f5c451] disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#d4af37] px-4 py-2.5 text-sm font-semibold text-[#07090d] hover:bg-[#f5c451] disabled:opacity-40"
             >
               <Plus className="w-4 h-4" />
               Add
@@ -513,43 +704,145 @@ function QuickAddBar({ onAddItem, defaultCategory = 'warframe' }) {
           </div>
         </div>
 
-        {/* Inline Tags BEFORE Expanding */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5 text-xs text-slate-400">
-            <Tag className="w-3.5 h-3.5 text-[#f5c451]" />
-            <span>Tags:</span>
-          </div>
-          {tags.map((t) => (
-            <span
-              key={t}
-              className="inline-flex items-center gap-1 rounded-md border border-[#d4af37]/40 bg-[#d4af37]/15 px-2 py-0.5 text-xs font-medium text-[#f5c451]"
-            >
-              #{t}
-              <button type="button" onClick={() => setTags((p) => p.filter((x) => x !== t))}>
-                <X className="w-3 h-3" />
-              </button>
-            </span>
-          ))}
-          <input
-            type="text"
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyDown={handleTagKeyDown}
-            placeholder="Type tag + Enter..."
-            className="w-36 rounded-md border border-[#263144] bg-[#0b0e14]/80 px-2.5 py-1 text-xs text-slate-200 placeholder-slate-500 focus:border-[#d4af37] focus:outline-none"
-          />
-          <div className="flex flex-wrap items-center gap-1">
-            {SUGGESTED_TAGS.filter((st) => !tags.includes(st)).slice(0, 6).map((st) => (
-              <button
-                key={st}
-                type="button"
-                onClick={() => addTag(st)}
-                className="rounded-md border border-[#263144] bg-[#0b0e14]/60 px-2 py-0.5 text-[11px] text-slate-400 hover:border-slate-500 hover:text-slate-200"
+        {/* Inline Tags + Prediction Box + Editable Default Tags */}
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 text-xs text-slate-400">
+              <Tag className="w-3.5 h-3.5 text-[#f5c451]" />
+              <span>Tags:</span>
+            </div>
+            {tags.map((t) => (
+              <span
+                key={t}
+                className="inline-flex items-center gap-1 rounded-md border border-[#d4af37]/40 bg-[#d4af37]/15 px-2 py-0.5 text-xs font-medium text-[#f5c451]"
               >
-                +{st}
-              </button>
+                #{t}
+                <button type="button" onClick={() => setTags((p) => p.filter((x) => x !== t))}>
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
             ))}
+
+            <div className="relative">
+              <input
+                type="text"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={handleTagKeyDown}
+                placeholder="Type tag + Enter..."
+                className="w-40 rounded-md border border-[#263144] bg-[#0b0e14]/80 px-2.5 py-1 text-xs text-slate-200 placeholder-slate-500 focus:border-[#d4af37] focus:outline-none"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1">
+              {defaultTags
+                .filter((st) => !tags.some((t) => t.toLowerCase() === st.toLowerCase()))
+                .map((st) => (
+                  <button
+                    key={st}
+                    type="button"
+                    onClick={() => addTag(st)}
+                    className="rounded-md border border-[#263144] bg-[#0b0e14]/60 px-2 py-0.5 text-[11px] text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                  >
+                    +{st}
+                  </button>
+                ))}
+              <button
+                type="button"
+                onClick={() => setEditingDefaultTags((p) => !p)}
+                title="Customize default quick-pick tags"
+                className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] transition-colors ${
+                  editingDefaultTags
+                    ? 'border-[#d4af37]/60 bg-[#d4af37]/15 text-[#f5c451]'
+                    : 'border-[#263144] bg-[#1a2130]/80 text-slate-400 hover:border-slate-500 hover:text-slate-200'
+                }`}
+              >
+                <SlidersHorizontal className="w-3 h-3" />
+                <span>{editingDefaultTags ? 'Done Editing Tags' : 'Edit Defaults'}</span>
+              </button>
+            </div>
           </div>
+
+          {/* Live Tag Autocomplete / Prediction Box Under Tag Input */}
+          {predictedTags.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-[#263144]/90 bg-[#0b0e14]/90 px-2.5 py-1.5 text-[11px]">
+              <span className="text-slate-400">Matching tags:</span>
+              {predictedTags.map(({ tag, count }) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => addTag(tag)}
+                  className="inline-flex items-center gap-1 rounded border border-cyan-500/35 bg-cyan-500/10 px-2 py-0.5 text-cyan-300 hover:bg-cyan-500/20"
+                >
+                  <span>+#{tag}</span>
+                  {count > 0 && <span className="text-[10px] text-cyan-400/70">({count})</span>}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Default Quick-Pick Tags Editor */}
+          {editingDefaultTags && (
+            <div className="rounded-lg border border-[#d4af37]/35 bg-[#0b0e14]/90 p-2.5 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-[#f5c451]">
+                  Default Quick-Pick Tags
+                </span>
+                <button
+                  type="button"
+                  onClick={onResetDefaultTags}
+                  className="text-[11px] text-slate-400 hover:text-slate-200 underline"
+                >
+                  Restore Built-in Defaults
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {defaultTags.map((dt) => (
+                  <span
+                    key={dt}
+                    className="inline-flex items-center gap-1 rounded border border-[#263144] bg-[#131822] px-2 py-0.5 text-[11px] text-slate-200"
+                  >
+                    #{dt}
+                    <button
+                      type="button"
+                      onClick={() => onRemoveDefaultTag?.(dt)}
+                      title={`Remove ${dt} from defaults`}
+                      className="text-slate-500 hover:text-rose-400"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+                {defaultTags.length === 0 && (
+                  <span className="text-[11px] text-slate-500 italic">No default tags configured.</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 max-w-sm">
+                <input
+                  type="text"
+                  value={newDefaultTagInput}
+                  onChange={(e) => setNewDefaultTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleCreateDefaultTag();
+                    }
+                  }}
+                  placeholder="New default tag..."
+                  className="flex-1 rounded-md border border-[#263144] bg-[#131822] px-2.5 py-1 text-xs text-slate-200 placeholder-slate-500 focus:border-[#d4af37] focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={handleCreateDefaultTag}
+                  disabled={!newDefaultTagInput.trim()}
+                  className="inline-flex items-center gap-1 rounded-md bg-[#d4af37] px-2.5 py-1 text-xs font-semibold text-[#07090d] hover:bg-[#f5c451] disabled:opacity-40"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add Default
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -661,7 +954,7 @@ function QuickAddBar({ onAddItem, defaultCategory = 'warframe' }) {
 
               {category === 'fodder' && (
                 <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">Current Gear Rank (0–30)</label>
+                  <label className="block text-[11px] text-slate-400 mb-1">Current Gear Rank (0–40)</label>
                   <input type="number" min="0" max="40" value={fodderRank} onChange={(e) => setFodderRank(e.target.value)} className="w-full rounded-lg border border-[#263144] bg-[#131822] px-2.5 py-1.5 text-xs text-slate-200" />
                 </div>
               )}
@@ -786,6 +1079,8 @@ function ItemCard({ item, onUpdateItem, onDeleteItem, onTagClick, compact = fals
     });
     setNewStep('');
   };
+
+  const fodderMaxRank = (item.fodderRank ?? 0) > 30 ? 40 : 30;
 
   return (
     <div className="rounded-xl border border-[#263144] bg-[#131822]/90 p-3.5 transition-colors hover:border-slate-500/70">
@@ -933,7 +1228,7 @@ function ItemCard({ item, onUpdateItem, onDeleteItem, onTagClick, compact = fals
 
           {draft.category === 'fodder' && (
             <div>
-              <label className="block text-[11px] text-slate-400 mb-1">Current Gear Rank (0–30)</label>
+              <label className="block text-[11px] text-slate-400 mb-1">Current Gear Rank (0–40)</label>
               <input
                 type="number"
                 min="0"
@@ -1019,7 +1314,7 @@ function ItemCard({ item, onUpdateItem, onDeleteItem, onTagClick, compact = fals
                 )}
                 {item.category === 'fodder' && typeof item.fodderRank === 'number' && (
                   <span className="rounded-md border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-[11px] text-rose-300">
-                    MR {item.fodderRank}/30
+                    Rank {item.fodderRank}/{fodderMaxRank}
                   </span>
                 )}
               </div>
@@ -1187,8 +1482,10 @@ export default function App() {
   const [countdowns, setCountdowns] = useState(() => getResetCountdowns());
   const [toast, setToast] = useState(null);
   const [showResetModal, setShowResetModal] = useState(false);
+  const [confirmFullWipe, setConfirmFullWipe] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const isFirstRender = useRef(true);
+  const toastTimeoutRef = useRef(null);
 
   const [resetsTab, setResetsTab] = useState('all');
   const [resetsFilter, setResetsFilter] = useState('all');
@@ -1211,9 +1508,21 @@ export default function App() {
   const fileInputRef = useRef(null);
 
   const notify = (message, type = 'success') => {
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
     setToast({ message, type });
-    setTimeout(() => setToast(null), 3500);
+    toastTimeoutRef.current = setTimeout(() => {
+      setToast(null);
+      toastTimeoutRef.current = null;
+    }, 3500);
   };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     saveState(state);
@@ -1268,6 +1577,32 @@ export default function App() {
     notify('Item removed');
   };
 
+  const handleAddDefaultTag = (tag) => {
+    const clean = tag.trim().replace(/^#/, '');
+    if (!clean) return;
+    setState((prev) => {
+      const existing = prev.defaultTags || [];
+      if (existing.some((t) => t.toLowerCase() === clean.toLowerCase())) return prev;
+      return { ...prev, defaultTags: [...existing, clean] };
+    });
+    notify(`Added #${clean} to default tags`);
+  };
+
+  const handleRemoveDefaultTag = (tag) => {
+    setState((prev) => ({
+      ...prev,
+      defaultTags: (prev.defaultTags || []).filter((t) => t !== tag),
+    }));
+  };
+
+  const handleResetDefaultTags = () => {
+    setState((prev) => ({
+      ...prev,
+      defaultTags: [...SUGGESTED_TAGS],
+    }));
+    notify('Restored built-in default tags');
+  };
+
   const handleToggleResetTask = (cadence, taskId) => {
     setState((prev) => ({
       ...prev,
@@ -1276,6 +1611,17 @@ export default function App() {
         [cadence]: prev.resets[cadence].map((t) => (t.id === taskId ? { ...t, done: !t.done } : t)),
       },
     }));
+  };
+
+  const handleDeleteResetTask = (cadence, taskId) => {
+    setState((prev) => ({
+      ...prev,
+      resets: {
+        ...prev.resets,
+        [cadence]: prev.resets[cadence].filter((t) => t.id !== taskId),
+      },
+    }));
+    notify('Deleted custom reset task');
   };
 
   const handleResetCadence = (cadence) => {
@@ -1320,6 +1666,11 @@ export default function App() {
     };
     reader.readAsText(file);
     e.target.value = '';
+  };
+
+  const closeResetModal = () => {
+    setShowResetModal(false);
+    setConfirmFullWipe(false);
   };
 
   const visibleDaily = state.resets.daily.filter((t) => !t.hidden);
@@ -1440,23 +1791,36 @@ export default function App() {
                         {task.note && <div className="text-[11px] text-slate-400 mt-0.5">{task.note}</div>}
                       </div>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setState((prev) => ({
-                          ...prev,
-                          resets: {
-                            ...prev.resets,
-                            [cadenceKey]: prev.resets[cadenceKey].map((t) =>
-                              t.id === task.id ? { ...t, hidden: !t.hidden } : t
-                            ),
-                          },
-                        }))
-                      }
-                      className="rounded p-1 text-slate-500 hover:bg-[#1a2130] hover:text-slate-300"
-                    >
-                      {task.hidden ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                    </button>
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setState((prev) => ({
+                            ...prev,
+                            resets: {
+                              ...prev.resets,
+                              [cadenceKey]: prev.resets[cadenceKey].map((t) =>
+                                t.id === task.id ? { ...t, hidden: !t.hidden } : t
+                              ),
+                            },
+                          }))
+                        }
+                        title={task.hidden ? 'Unhide task' : 'Hide task'}
+                        className="rounded p-1 text-slate-500 hover:bg-[#1a2130] hover:text-slate-300"
+                      >
+                        {task.hidden ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                      </button>
+                      {task.custom && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteResetTask(cadenceKey, task.id)}
+                          title="Delete custom task"
+                          className="rounded p-1 text-slate-500 hover:bg-rose-500/15 hover:text-rose-400"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1527,7 +1891,7 @@ export default function App() {
                   Weeklies {weeklyDone}/{visibleWeekly.length}
                 </button>
               </div>
-              <p className="text-[11px] text-slate-400 mt-0.5">Warframe Mission, Arsenal &amp; Relic Command Terminal</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">Warframe Mission, Arsenal & Relic Command Terminal</p>
             </div>
           </div>
 
@@ -1552,6 +1916,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setShowResetModal(true)}
+              title="Reset or clear local data"
               className="inline-flex items-center gap-1 rounded-lg border border-[#263144] bg-[#131822] px-2.5 py-1.5 text-xs text-slate-400 hover:text-slate-200"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -1616,7 +1981,7 @@ export default function App() {
 
               <button type="button" onClick={() => setActiveView('arsenal')} className="text-left rounded-xl border border-[#263144] bg-[#131822]/90 p-4 hover:border-amber-500/50">
                 <div className="flex items-center justify-between text-xs text-slate-400">
-                  <span className="font-medium uppercase tracking-wider">Active Farms &amp; Fodder</span>
+                  <span className="font-medium uppercase tracking-wider">Active Farms & Fodder</span>
                   <Shield className="w-4 h-4 text-amber-400" />
                 </div>
                 <div className="mt-2 flex items-baseline justify-between">
@@ -1628,7 +1993,7 @@ export default function App() {
 
               <button type="button" onClick={() => setActiveView('mods-relics')} className="text-left rounded-xl border border-[#263144] bg-[#131822]/90 p-4 hover:border-emerald-500/50">
                 <div className="flex items-center justify-between text-xs text-slate-400">
-                  <span className="font-medium uppercase tracking-wider">Mods &amp; Relics</span>
+                  <span className="font-medium uppercase tracking-wider">Mods & Relics</span>
                   <Sparkles className="w-4 h-4 text-emerald-400" />
                 </div>
                 <div className="mt-2 flex items-baseline justify-between">
@@ -1639,7 +2004,14 @@ export default function App() {
               </button>
             </div>
 
-            <QuickAddBar onAddItem={handleAddItem} />
+            <QuickAddBar
+              onAddItem={handleAddItem}
+              existingItems={state.items}
+              defaultTags={state.defaultTags}
+              onAddDefaultTag={handleAddDefaultTag}
+              onRemoveDefaultTag={handleRemoveDefaultTag}
+              onResetDefaultTags={handleResetDefaultTags}
+            />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-5 items-start">
               <div className="space-y-5">
@@ -1685,7 +2057,7 @@ export default function App() {
 
                 <div className="rounded-xl border border-[#263144] bg-[#131822]/70 p-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-200">Mastery Fodder (Level &amp; Sell)</h3>
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-200">Mastery Fodder (Level & Sell)</h3>
                     <button type="button" onClick={() => setActiveView('arsenal')} className="text-xs font-medium text-cyan-400">Arsenal →</button>
                   </div>
                   <div className="space-y-2.5">
@@ -1699,7 +2071,7 @@ export default function App() {
               <div className="space-y-5">
                 <div className="rounded-xl border border-[#263144] bg-[#131822]/70 p-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-200">Active Warframe &amp; Weapon Farms</h3>
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-200">Active Warframe & Weapon Farms</h3>
                     <button type="button" onClick={() => setActiveView('arsenal')} className="text-xs font-medium text-cyan-400">View all ({activeFarms.length}) →</button>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1713,7 +2085,7 @@ export default function App() {
               <div className="lg:col-span-2 2xl:col-span-1 space-y-5">
                 <div className="rounded-xl border border-[#263144] bg-[#131822]/70 p-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-200">Mods &amp; Relics Focus</h3>
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-200">Mods & Relics Focus</h3>
                     <button type="button" onClick={() => setActiveView('mods-relics')} className="text-xs font-medium text-cyan-400">View all ({modsAndRelics.length}) →</button>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1797,7 +2169,15 @@ export default function App() {
 
         {activeView === 'arsenal' && (
           <div className="space-y-5">
-            <QuickAddBar onAddItem={handleAddItem} defaultCategory={arsenalTab === 'all' ? 'warframe' : arsenalTab} />
+            <QuickAddBar
+              onAddItem={handleAddItem}
+              defaultCategory={arsenalTab === 'all' ? 'warframe' : arsenalTab}
+              existingItems={state.items}
+              defaultTags={state.defaultTags}
+              onAddDefaultTag={handleAddDefaultTag}
+              onRemoveDefaultTag={handleRemoveDefaultTag}
+              onResetDefaultTags={handleResetDefaultTags}
+            />
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#263144] bg-[#131822]/90 p-3">
               <div className="flex flex-wrap items-center gap-2">
                 {[{ id: 'all', label: 'All Arsenal' }, { id: 'warframe', label: 'Warframes' }, { id: 'weapon', label: 'Weapons to Get' }, { id: 'fodder', label: 'Mastery Fodder' }].map((t) => (
@@ -1830,7 +2210,15 @@ export default function App() {
 
         {activeView === 'mods-relics' && (
           <div className="space-y-5">
-            <QuickAddBar onAddItem={handleAddItem} defaultCategory={mrTab === 'mod' ? 'mod' : 'relic'} />
+            <QuickAddBar
+              onAddItem={handleAddItem}
+              defaultCategory={mrTab === 'mod' ? 'mod' : 'relic'}
+              existingItems={state.items}
+              defaultTags={state.defaultTags}
+              onAddDefaultTag={handleAddDefaultTag}
+              onRemoveDefaultTag={handleRemoveDefaultTag}
+              onResetDefaultTags={handleResetDefaultTags}
+            />
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#263144] bg-[#131822]/90 p-3">
               <div className="flex flex-wrap items-center gap-2">
                 {[{ id: 'all', label: 'All' }, { id: 'relic', label: 'Void Relics' }, { id: 'mod', label: 'Mods' }].map((t) => (
@@ -1865,7 +2253,15 @@ export default function App() {
 
         {activeView === 'all' && (
           <div className="space-y-5">
-            <QuickAddBar onAddItem={handleAddItem} defaultCategory="activity" />
+            <QuickAddBar
+              onAddItem={handleAddItem}
+              defaultCategory="activity"
+              existingItems={state.items}
+              defaultTags={state.defaultTags}
+              onAddDefaultTag={handleAddDefaultTag}
+              onRemoveDefaultTag={handleRemoveDefaultTag}
+              onResetDefaultTags={handleResetDefaultTags}
+            />
             <div className="rounded-xl border border-[#263144] bg-[#131822]/90 p-3.5 space-y-3">
               <div className="flex flex-col md:flex-row gap-2.5">
                 <div className="relative flex-1">
@@ -1927,37 +2323,90 @@ export default function App() {
       {showResetModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <div className="w-full max-w-md rounded-xl border border-[#263144] bg-[#131822] p-5 space-y-4 shadow-2xl">
-            <h3 className="text-base font-bold text-slate-100">Manage Local Ledger Data</h3>
-            <p className="text-xs text-slate-400">Your data is stored locally in this browser. Export a JSON backup first if you want to keep your current entries.</p>
-            <div className="flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setState(createInitialState(true));
-                  setTimeout(() => setHasUnsavedChanges(false), 0);
-                  setShowResetModal(false);
-                  notify('Restored sample Tenno Ledger data');
-                }}
-                className="w-full rounded-lg border border-[#d4af37]/40 bg-[#d4af37]/15 px-3 py-2 text-xs font-semibold text-[#f5c451]"
-              >
-                Load Sample Data (Replaces Current Items)
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setState(createInitialState(false));
-                  setTimeout(() => setHasUnsavedChanges(false), 0);
-                  setShowResetModal(false);
-                  notify('Cleared all items');
-                }}
-                className="w-full rounded-lg border border-rose-500/40 bg-rose-500/15 px-3 py-2 text-xs font-semibold text-rose-300"
-              >
-                Start Fresh (Empty Items List)
-              </button>
-              <button type="button" onClick={() => setShowResetModal(false)} className="w-full rounded-lg border border-[#263144] bg-[#0b0e14] px-3 py-2 text-xs font-medium text-slate-300">
-                Cancel
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-100">Manage Local Ledger Data</h3>
+              <button type="button" onClick={closeResetModal} className="text-slate-400 hover:text-slate-200">
+                <X className="w-4 h-4" />
               </button>
             </div>
+            <p className="text-xs text-slate-400">
+              Your data is stored locally in this browser. Export a JSON backup first if you want to keep your current entries.
+            </p>
+
+            {!confirmFullWipe ? (
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setState((prev) => ({ ...prev, items: [] }));
+                    closeResetModal();
+                    notify('Cleared all items (kept reset checklists & default tags)');
+                  }}
+                  className="w-full rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-500/25"
+                >
+                  Flush Items List Only (Keep Resets & Default Tags)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setState((prev) => ({ ...prev, items: SAMPLE_ITEMS }));
+                    closeResetModal();
+                    notify('Loaded sample items (kept reset checklists & default tags)');
+                  }}
+                  className="w-full rounded-lg border border-[#d4af37]/40 bg-[#d4af37]/15 px-3 py-2 text-xs font-semibold text-[#f5c451] hover:bg-[#d4af37]/25"
+                >
+                  Load Sample Items (Replaces Current Items)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmFullWipe(true)}
+                  className="w-full rounded-lg border border-rose-500/40 bg-rose-500/15 px-3 py-2 text-xs font-semibold text-rose-300 hover:bg-rose-500/25"
+                >
+                  Complete Fresh Wipe (New User Experience)...
+                </button>
+                <button
+                  type="button"
+                  onClick={closeResetModal}
+                  className="w-full rounded-lg border border-[#263144] bg-[#0b0e14] px-3 py-2 text-xs font-medium text-slate-300 hover:text-white"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-3.5 space-y-3">
+                <div className="flex items-start gap-2 text-rose-300">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div className="text-xs space-y-1">
+                    <p className="font-semibold">Confirm Complete Fresh Wipe</p>
+                    <p className="text-rose-200/80">
+                      This will erase all items, custom daily/weekly reset tasks, hidden task settings, and custom default tags back to a clean new-user state.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      localStorage.removeItem(STORAGE_KEY);
+                      setState(createInitialState(false));
+                      setTimeout(() => setHasUnsavedChanges(false), 0);
+                      closeResetModal();
+                      notify('Completed full fresh wipe');
+                    }}
+                    className="flex-1 rounded-lg bg-rose-500 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-600"
+                  >
+                    Yes, Wipe Everything
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmFullWipe(false)}
+                    className="rounded-lg border border-[#263144] bg-[#0b0e14] px-3 py-2 text-xs font-medium text-slate-300 hover:text-white"
+                  >
+                    Back
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
