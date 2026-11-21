@@ -1,4 +1,6 @@
-import { STORAGE_KEY, SUGGESTED_TAGS, SAMPLE_ITEMS, DEFAULT_DAILY_TASKS, DEFAULT_WEEKLY_TASKS } from './constants.js';
+import { STORAGE_KEY, SUGGESTED_TAGS } from './data/options.js';
+import { SAMPLE_ITEMS } from './data/sampleItems.js';
+import { DEFAULT_DAILY_TASKS, DEFAULT_WEEKLY_TASKS } from './data/resetTasks.js';
 
 export function getMondayUtcKey(date = new Date()) {
   const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));

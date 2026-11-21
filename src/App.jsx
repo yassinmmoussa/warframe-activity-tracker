@@ -37,7 +37,9 @@ import {
 } from 'lucide-react';
 import { QuickAddBar } from './components/QuickAddBar.jsx';
 import { ItemCard } from './components/ItemCard.jsx';
-import { CATEGORIES, STATUS_OPTIONS, SUGGESTED_TAGS, RELIC_ERAS, SAMPLE_ITEMS, STORAGE_KEY } from './constants.js';
+import { CATEGORIES, STATUS_OPTIONS, RELIC_ERAS } from './data/options.js';
+import { SUGGESTED_TAGS, STORAGE_KEY } from './data/options.js';
+import { SAMPLE_ITEMS } from './data/sampleItems.js';
 import { getMondayUtcKey, createInitialState, normalizeState, loadState, saveState, getResetCountdowns } from './storage.js';
 
 export default function App() {

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, ChevronDown, ChevronUp, Search, Tag, X, Minus, Sparkles, ListChecks, SlidersHorizontal } from 'lucide-react';
-import { CATEGORIES, STATUS_OPTIONS, STATUS_STYLES, PRIORITY_OPTIONS, RELIC_ERAS, RELIC_REFINEMENTS, CHECKLIST_TEMPLATES } from '../constants.js';
+import { CATEGORIES, STATUS_OPTIONS, PRIORITY_OPTIONS, RELIC_ERAS, RELIC_REFINEMENTS } from '../data/options.js';
+import { CHECKLIST_TEMPLATES } from '../data/checklists.js';
+import { STATUS_STYLES } from '../constants/uiStyles.js';
 
 export function QuickAddBar({
   onAddItem,

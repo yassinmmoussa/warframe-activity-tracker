@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, ChevronDown, ChevronUp, ChevronRight, Tag, Check, Trash2, Pencil, Minus, CheckSquare, Square, X, MapPin, Sparkles } from 'lucide-react';
-import { CATEGORIES, STATUS_OPTIONS, PRIORITY_OPTIONS, RELIC_ERAS, RELIC_REFINEMENTS, CHECKLIST_TEMPLATES, CATEGORY_BADGES, STATUS_STYLES, PRIORITY_DOT } from '../constants.js';
+import { CATEGORIES, STATUS_OPTIONS, PRIORITY_OPTIONS, RELIC_ERAS, RELIC_REFINEMENTS } from '../data/options.js';
+import { CHECKLIST_TEMPLATES } from '../data/checklists.js';
+import { CATEGORY_BADGES, STATUS_STYLES, PRIORITY_DOT } from '../constants/uiStyles.js';
 
 export function ItemCard({ item, onUpdateItem, onDeleteItem, onTagClick, compact = false }) {
   const [expanded, setExpanded] = useState(false);
