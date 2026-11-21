@@ -38,9 +38,10 @@ import {
 import { QuickAddBar } from './components/QuickAddBar.jsx';
 import { ItemCard } from './components/ItemCard.jsx';
 import { CATEGORIES, STATUS_OPTIONS, RELIC_ERAS } from './data/options.js';
-import { SUGGESTED_TAGS, STORAGE_KEY } from './data/options.js';
+import { SUGGESTED_TAGS } from './data/options.js';
 import { SAMPLE_ITEMS } from './data/sampleItems.js';
-import { getMondayUtcKey, createInitialState, normalizeState, loadState, saveState, getResetCountdowns } from './storage.js';
+import { createInitialState, normalizeState, loadState, saveState, clearStoredState } from './storage/resetStorage.js';
+import { getResetCountdowns } from './storage/resetTime.js';
 
 export default function App() {
   const [state, setState] = useState(() => loadState());
@@ -954,7 +955,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => {
-                      localStorage.removeItem(STORAGE_KEY);
+                      clearStoredState();
                       setState(createInitialState(false));
                       setTimeout(() => setHasUnsavedChanges(false), 0);
                       closeResetModal();
