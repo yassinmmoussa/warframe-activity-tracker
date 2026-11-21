@@ -1,4 +1,5 @@
 import { CheckCircle2, Circle, Clock, Eye, EyeOff, RotateCcw, Trash2 } from 'lucide-react';
+import { filterResetTasks, getResetProgress } from '../../selectors/ledgerSelectors.js';
 
 export function ResetSection({
   cadenceKey,
@@ -13,15 +14,10 @@ export function ResetSection({
   onToggleVisibility,
   onDeleteTask,
 }) {
-  const visible = tasks.filter((task) => (showHidden ? true : !task.hidden));
-  const filtered = visible.filter((task) => {
-    if (filter === 'incomplete') return !task.done;
-    if (filter === 'completed') return task.done;
-    return true;
-  });
-
-  const activeTotal = tasks.filter((task) => !task.hidden).length;
-  const activeDone = tasks.filter((task) => !task.hidden && task.done).length;
+  const filtered = filterResetTasks(tasks, { filter, showHidden });
+  const progress = getResetProgress(tasks);
+  const activeTotal = progress.visible.length;
+  const activeDone = progress.done;
   const groups = filtered.reduce((acc, task) => {
     const group = task.group || 'General';
     if (!acc[group]) acc[group] = [];

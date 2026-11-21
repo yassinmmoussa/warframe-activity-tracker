@@ -8,6 +8,7 @@ import { DashboardPage } from './features/dashboard/DashboardPage.jsx';
 import { ArsenalPage } from './features/arsenal/ArsenalPage.jsx';
 import { ModsRelicsPage } from './features/mods/ModsRelicsPage.jsx';
 import { JournalPage } from './features/journal/JournalPage.jsx';
+import { VIEWS } from './constants/views.js';
 
 export default function App() {
   const {
@@ -33,7 +34,7 @@ export default function App() {
     handleFullWipe,
   } = useLedger();
 
-  const [activeView, setActiveView] = useState('dashboard');
+  const [activeView, setActiveView] = useState(VIEWS.DASHBOARD);
   const [selectedTag, setSelectedTag] = useState('');
   const [showResetModal, setShowResetModal] = useState(false);
   const [confirmFullWipe, setConfirmFullWipe] = useState(false);
@@ -75,7 +76,7 @@ export default function App() {
       />
 
       <main className="w-full max-w-[1920px] mx-auto flex-1 px-4 sm:px-6 lg:px-8 py-6">
-        {activeView === 'dashboard' && (
+        {activeView === VIEWS.DASHBOARD && (
           <DashboardPage
             state={state}
             countdowns={countdowns}
@@ -87,23 +88,23 @@ export default function App() {
             onAddDefaultTag={handleAddDefaultTag}
             onRemoveDefaultTag={handleRemoveDefaultTag}
             onResetDefaultTags={handleResetDefaultTags}
-            onTagClick={(tag) => { setSelectedTag(tag); setActiveView('all'); }}
+            onTagClick={(tag) => { setSelectedTag(tag); setActiveView(VIEWS.JOURNAL); }}
           />
         )}
 
-        {activeView === 'resets' && (
+        {activeView === VIEWS.RESETS && (
           <ResetsPage state={state} countdowns={countdowns} onToggleTask={handleToggleResetTask} onToggleVisibility={handleToggleResetTaskVisibility} onDeleteTask={handleDeleteResetTask} onResetCadence={handleResetCadence} onAddResetTask={handleAddResetTask} />
         )}
 
-        {activeView === 'arsenal' && (
-          <ArsenalPage state={state} onAddItem={handleAddItem} onUpdateItem={handleUpdateItem} onDeleteItem={handleDeleteItem} onAddDefaultTag={handleAddDefaultTag} onRemoveDefaultTag={handleRemoveDefaultTag} onResetDefaultTags={handleResetDefaultTags} onTagClick={(tag) => { setSelectedTag(tag); setActiveView('all'); }} />
+        {activeView === VIEWS.ARSENAL && (
+          <ArsenalPage state={state} onAddItem={handleAddItem} onUpdateItem={handleUpdateItem} onDeleteItem={handleDeleteItem} onAddDefaultTag={handleAddDefaultTag} onRemoveDefaultTag={handleRemoveDefaultTag} onResetDefaultTags={handleResetDefaultTags} onTagClick={(tag) => { setSelectedTag(tag); setActiveView(VIEWS.JOURNAL); }} />
         )}
 
-        {activeView === 'mods-relics' && (
-          <ModsRelicsPage state={state} onAddItem={handleAddItem} onUpdateItem={handleUpdateItem} onDeleteItem={handleDeleteItem} onAddDefaultTag={handleAddDefaultTag} onRemoveDefaultTag={handleRemoveDefaultTag} onResetDefaultTags={handleResetDefaultTags} onTagClick={(tag) => { setSelectedTag(tag); setActiveView('all'); }} />
+        {activeView === VIEWS.MODS_RELICS && (
+          <ModsRelicsPage state={state} onAddItem={handleAddItem} onUpdateItem={handleUpdateItem} onDeleteItem={handleDeleteItem} onAddDefaultTag={handleAddDefaultTag} onRemoveDefaultTag={handleRemoveDefaultTag} onResetDefaultTags={handleResetDefaultTags} onTagClick={(tag) => { setSelectedTag(tag); setActiveView(VIEWS.JOURNAL); }} />
         )}
 
-        {activeView === 'all' && (
+        {activeView === VIEWS.JOURNAL && (
           <JournalPage state={state} selectedTag={selectedTag} setSelectedTag={setSelectedTag} onAddItem={handleAddItem} onUpdateItem={handleUpdateItem} onDeleteItem={handleDeleteItem} onAddDefaultTag={handleAddDefaultTag} onRemoveDefaultTag={handleRemoveDefaultTag} onResetDefaultTags={handleResetDefaultTags} />
         )}
       </main>

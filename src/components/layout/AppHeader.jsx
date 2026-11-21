@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { Download, Upload, RotateCcw } from 'lucide-react';
 import { AppNavigation } from './AppNavigation.jsx';
+import { VIEWS } from '../../constants/views.js';
 
 export function AppHeader({
   activeView,
@@ -47,7 +48,7 @@ export function AppHeader({
               )}
               <button
                 type="button"
-                onClick={() => setActiveView('resets')}
+                onClick={() => setActiveView(VIEWS.RESETS)}
                 className={`hidden md:inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider transition-colors ${
                   visibleDailyCount > 0 && dailyDone === visibleDailyCount
                     ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
@@ -58,7 +59,7 @@ export function AppHeader({
               </button>
               <button
                 type="button"
-                onClick={() => setActiveView('resets')}
+                onClick={() => setActiveView(VIEWS.RESETS)}
                 className={`hidden md:inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider transition-colors ${
                   visibleWeeklyCount > 0 && weeklyDone === visibleWeeklyCount
                     ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'

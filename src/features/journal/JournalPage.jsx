@@ -1,38 +1,22 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { CATEGORIES, STATUS_OPTIONS } from '../../data/options.js';
 import { QuickAddBar } from '../../components/QuickAddBar.jsx';
 import { ItemCard } from '../../components/ItemCard.jsx';
+import { useFilteredJournal } from '../../hooks/useFilteredJournal.js';
 
 export function JournalPage({ state, selectedTag, setSelectedTag, onAddItem, onUpdateItem, onDeleteItem, onAddDefaultTag, onRemoveDefaultTag, onResetDefaultTags }) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
   const [status, setStatus] = useState('all');
   const [sort, setSort] = useState('updated');
-  const allTags = useMemo(() => {
-    const tags = new Set();
-    state.items.forEach((item) => (item.tags || []).forEach((tag) => tags.add(tag)));
-    return Array.from(tags).sort();
-  }, [state.items]);
-  const items = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    const priority = { high: 0, medium: 1, low: 2 };
-    const filtered = state.items.filter((item) => {
-      if (category !== 'all' && item.category !== category) return false;
-      if (status !== 'all' && item.status !== status) return false;
-      if (selectedTag && !(item.tags || []).includes(selectedTag)) return false;
-      if (query) {
-        const haystack = [item.title, item.notes, item.source, ...(item.tags || []), ...(item.checklist || []).map((step) => step.text)].filter(Boolean).join(' ').toLowerCase();
-        if (!haystack.includes(query)) return false;
-      }
-      return true;
-    });
-    return [...filtered].sort((a, b) => {
-      if (sort === 'priority') return (priority[a.priority] ?? 1) - (priority[b.priority] ?? 1);
-      if (sort === 'alpha') return a.title.localeCompare(b.title);
-      return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);
-    });
-  }, [state.items, search, category, status, selectedTag, sort]);
+  const { allTags, filteredItems: items } = useFilteredJournal(state.items, {
+    search,
+    category,
+    status,
+    selectedTag,
+    sort,
+  });
 
   return (
     <div className="space-y-5">

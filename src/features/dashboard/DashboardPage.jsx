@@ -1,6 +1,8 @@
 import { ArrowRight, Circle, Clock, Flame, Shield, Sparkles } from 'lucide-react';
 import { QuickAddBar } from '../../components/QuickAddBar.jsx';
 import { ItemCard } from '../../components/ItemCard.jsx';
+import { getDashboardData } from '../../selectors/ledgerSelectors.js';
+import { VIEWS } from '../../constants/views.js';
 
 export function DashboardPage({
   state,
@@ -15,19 +17,20 @@ export function DashboardPage({
   onResetDefaultTags,
   onTagClick,
 }) {
-  const visibleDaily = state.resets.daily.filter((task) => !task.hidden);
-  const visibleWeekly = state.resets.weekly.filter((task) => !task.hidden);
-  const dailyDone = visibleDaily.filter((task) => task.done).length;
-  const weeklyDone = visibleWeekly.filter((task) => task.done).length;
-  const activeItems = state.items.filter((item) => item.status !== 'done');
-  const activeFarms = activeItems.filter((item) => item.category === 'warframe' || item.category === 'weapon');
-  const fodderItems = activeItems.filter((item) => item.category === 'fodder');
-  const modsAndRelics = activeItems.filter((item) => item.category === 'mod' || item.category === 'relic');
+  const dashboard = getDashboardData(state.items, state.resets);
+  const visibleDaily = dashboard.daily.visible;
+  const visibleWeekly = dashboard.weekly.visible;
+  const dailyDone = dashboard.daily.done;
+  const weeklyDone = dashboard.weekly.done;
+  const activeItems = dashboard.activeItems;
+  const activeFarms = dashboard.activeFarms;
+  const fodderItems = dashboard.fodderItems;
+  const modsAndRelics = dashboard.modsAndRelics;
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-        <button type="button" onClick={() => onSetView('resets')} className="text-left rounded-xl border border-[#263144] bg-[#131822]/90 p-4 hover:border-cyan-500/50">
+        <button type="button" onClick={() => onSetView(VIEWS.RESETS)} className="text-left rounded-xl border border-[#263144] bg-[#131822]/90 p-4 hover:border-cyan-500/50">
           <div className="flex items-center justify-between text-xs text-slate-400">
             <span className="font-medium uppercase tracking-wider">Daily Resets</span>
             <span className="inline-flex items-center gap-1 text-cyan-300"><Clock className="w-3.5 h-3.5" />{countdowns.dailyText}</span>
@@ -40,7 +43,7 @@ export function DashboardPage({
             <div className="h-full bg-cyan-400 transition-all" style={{ width: `${visibleDaily.length ? (dailyDone / visibleDaily.length) * 100 : 0}%` }} />
           </div>
         </button>
-        <button type="button" onClick={() => onSetView('resets')} className="text-left rounded-xl border border-[#263144] bg-[#131822]/90 p-4 hover:border-[#d4af37]/50">
+        <button type="button" onClick={() => onSetView(VIEWS.RESETS)} className="text-left rounded-xl border border-[#263144] bg-[#131822]/90 p-4 hover:border-[#d4af37]/50">
           <div className="flex items-center justify-between text-xs text-slate-400">
             <span className="font-medium uppercase tracking-wider">Weekly Resets</span>
             <span className="inline-flex items-center gap-1 text-[#f5c451]"><Clock className="w-3.5 h-3.5" />{countdowns.weeklyText}</span>
@@ -53,7 +56,7 @@ export function DashboardPage({
             <div className="h-full bg-[#f5c451] transition-all" style={{ width: `${visibleWeekly.length ? (weeklyDone / visibleWeekly.length) * 100 : 0}%` }} />
           </div>
         </button>
-        <button type="button" onClick={() => onSetView('arsenal')} className="text-left rounded-xl border border-[#263144] bg-[#131822]/90 p-4 hover:border-amber-500/50">
+        <button type="button" onClick={() => onSetView(VIEWS.ARSENAL)} className="text-left rounded-xl border border-[#263144] bg-[#131822]/90 p-4 hover:border-amber-500/50">
           <div className="flex items-center justify-between text-xs text-slate-400">
             <span className="font-medium uppercase tracking-wider">Active Farms & Fodder</span>
             <Shield className="w-4 h-4 text-amber-400" />
@@ -64,7 +67,7 @@ export function DashboardPage({
           </div>
           <p className="mt-2 text-xs text-slate-400">{activeFarms.length} frames/weapons • {fodderItems.length} mastery fodder</p>
         </button>
-        <button type="button" onClick={() => onSetView('mods-relics')} className="text-left rounded-xl border border-[#263144] bg-[#131822]/90 p-4 hover:border-emerald-500/50">
+        <button type="button" onClick={() => onSetView(VIEWS.MODS_RELICS)} className="text-left rounded-xl border border-[#263144] bg-[#131822]/90 p-4 hover:border-emerald-500/50">
           <div className="flex items-center justify-between text-xs text-slate-400">
             <span className="font-medium uppercase tracking-wider">Mods & Relics</span>
             <Sparkles className="w-4 h-4 text-emerald-400" />
@@ -84,7 +87,7 @@ export function DashboardPage({
           <div className="rounded-xl border border-[#263144] bg-[#131822]/70 p-4 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2"><Flame className="w-4 h-4 text-[#f5c451]" /><h3 className="text-sm font-semibold uppercase tracking-wider text-slate-200">Next Resets To Do</h3></div>
-              <button type="button" onClick={() => onSetView('resets')} className="text-xs font-medium text-cyan-400 hover:text-cyan-300">View all resets →</button>
+              <button type="button" onClick={() => onSetView(VIEWS.RESETS)} className="text-xs font-medium text-cyan-400 hover:text-cyan-300">View all resets →</button>
             </div>
             <div className="space-y-1.5">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-cyan-400">Daily ({dailyDone}/{visibleDaily.length})</p>
@@ -100,19 +103,19 @@ export function DashboardPage({
             </div>
           </div>
           <div className="rounded-xl border border-[#263144] bg-[#131822]/70 p-4 space-y-3">
-            <div className="flex items-center justify-between"><h3 className="text-sm font-semibold uppercase tracking-wider text-slate-200">Mastery Fodder (Level & Sell)</h3><button type="button" onClick={() => onSetView('arsenal')} className="text-xs font-medium text-cyan-400">Arsenal →</button></div>
+            <div className="flex items-center justify-between"><h3 className="text-sm font-semibold uppercase tracking-wider text-slate-200">Mastery Fodder (Level & Sell)</h3><button type="button" onClick={() => onSetView(VIEWS.ARSENAL)} className="text-xs font-medium text-cyan-400">Arsenal →</button></div>
             <div className="space-y-2.5">{fodderItems.slice(0, 4).map((item) => <ItemCard key={item.id} item={item} onUpdateItem={onUpdateItem} onDeleteItem={onDeleteItem} onTagClick={onTagClick} compact />)}</div>
           </div>
         </div>
         <div className="space-y-5">
           <div className="rounded-xl border border-[#263144] bg-[#131822]/70 p-4 space-y-3">
-            <div className="flex items-center justify-between"><h3 className="text-sm font-semibold uppercase tracking-wider text-slate-200">Active Warframe & Weapon Farms</h3><button type="button" onClick={() => onSetView('arsenal')} className="text-xs font-medium text-cyan-400">View all ({activeFarms.length}) →</button></div>
+            <div className="flex items-center justify-between"><h3 className="text-sm font-semibold uppercase tracking-wider text-slate-200">Active Warframe & Weapon Farms</h3><button type="button" onClick={() => onSetView(VIEWS.ARSENAL)} className="text-xs font-medium text-cyan-400">View all ({activeFarms.length}) →</button></div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{activeFarms.slice(0, 4).map((item) => <ItemCard key={item.id} item={item} onUpdateItem={onUpdateItem} onDeleteItem={onDeleteItem} onTagClick={onTagClick} />)}</div>
           </div>
         </div>
         <div className="lg:col-span-2 2xl:col-span-1 space-y-5">
           <div className="rounded-xl border border-[#263144] bg-[#131822]/70 p-4 space-y-3">
-            <div className="flex items-center justify-between"><h3 className="text-sm font-semibold uppercase tracking-wider text-slate-200">Mods & Relics Focus</h3><button type="button" onClick={() => onSetView('mods-relics')} className="text-xs font-medium text-cyan-400">View all ({modsAndRelics.length}) →</button></div>
+            <div className="flex items-center justify-between"><h3 className="text-sm font-semibold uppercase tracking-wider text-slate-200">Mods & Relics Focus</h3><button type="button" onClick={() => onSetView(VIEWS.MODS_RELICS)} className="text-xs font-medium text-cyan-400">View all ({modsAndRelics.length}) →</button></div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{modsAndRelics.slice(0, 4).map((item) => <ItemCard key={item.id} item={item} onUpdateItem={onUpdateItem} onDeleteItem={onDeleteItem} onTagClick={onTagClick} />)}</div>
           </div>
         </div>

@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { RELIC_ERAS } from '../../data/options.js';
 import { QuickAddBar } from '../../components/QuickAddBar.jsx';
 import { ItemCard } from '../../components/ItemCard.jsx';
+import { filterModsRelicsItems } from '../../selectors/ledgerSelectors.js';
 
 export function ModsRelicsPage({ state, onAddItem, onUpdateItem, onDeleteItem, onAddDefaultTag, onRemoveDefaultTag, onResetDefaultTags, onTagClick }) {
   const [tab, setTab] = useState('all');
   const [era, setEra] = useState('all');
   const tabs = [{ id: 'all', label: 'All' }, { id: 'relic', label: 'Void Relics' }, { id: 'mod', label: 'Mods' }];
+  const items = filterModsRelicsItems(state.items, tab, era);
 
   return (
     <div className="space-y-5">
@@ -25,11 +27,7 @@ export function ModsRelicsPage({ state, onAddItem, onUpdateItem, onDeleteItem, o
         )}
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3.5">
-        {state.items
-          .filter((item) => item.category === 'mod' || item.category === 'relic')
-          .filter((item) => tab === 'all' || item.category === tab)
-          .filter((item) => era === 'all' || (item.category === 'relic' && item.relicEra === era))
-          .map((item) => <ItemCard key={item.id} item={item} onUpdateItem={onUpdateItem} onDeleteItem={onDeleteItem} onTagClick={onTagClick} />)}
+        {items.map((item) => <ItemCard key={item.id} item={item} onUpdateItem={onUpdateItem} onDeleteItem={onDeleteItem} onTagClick={onTagClick} />)}
       </div>
     </div>
   );

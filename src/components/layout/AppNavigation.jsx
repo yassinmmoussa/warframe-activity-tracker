@@ -1,11 +1,12 @@
 import { LayoutDashboard, CalendarClock, Swords, Gem, BookOpen } from 'lucide-react';
+import { VIEWS } from '../../constants/views.js';
 
 const NAV_ITEMS = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'resets', label: 'Daily & Weekly', icon: CalendarClock },
-  { id: 'arsenal', label: 'Arsenal & Fodder', icon: Swords },
-  { id: 'mods-relics', label: 'Mods & Relics', icon: Gem },
-  { id: 'all', label: 'Journal', icon: BookOpen },
+  { id: VIEWS.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
+  { id: VIEWS.RESETS, label: 'Daily & Weekly', icon: CalendarClock },
+  { id: VIEWS.ARSENAL, label: 'Arsenal & Fodder', icon: Swords },
+  { id: VIEWS.MODS_RELICS, label: 'Mods & Relics', icon: Gem },
+  { id: VIEWS.JOURNAL, label: 'Journal', icon: BookOpen },
 ];
 
 export function AppNavigation({ activeView, setActiveView }) {
