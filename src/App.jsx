@@ -258,18 +258,22 @@ const SAMPLE_ITEMS = [
 ];
 
 const CATEGORY_BADGES = {
-  warframe: 'border-amber-500/40 bg-amber-500/15 text-amber-300',
-  weapon: 'border-cyan-500/40 bg-cyan-500/15 text-cyan-300',
-  fodder: 'border-rose-500/40 bg-rose-500/15 text-rose-300',
-  mod: 'border-violet-500/40 bg-violet-500/15 text-violet-300',
-  relic: 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300',
-  activity: 'border-slate-500/40 bg-slate-500/15 text-slate-300',
+  warframe: 'border-amber-400/50 bg-amber-500/20 text-amber-200',
+  weapon: 'border-sky-400/50 bg-sky-500/20 text-sky-200',
+  fodder: 'border-pink-500/50 bg-pink-500/20 text-pink-200',
+  mod: 'border-fuchsia-500/50 bg-fuchsia-500/20 text-fuchsia-200',
+  relic: 'border-teal-400/50 bg-teal-500/20 text-teal-200',
+  activity: 'border-orange-500/45 bg-orange-500/15 text-orange-200',
 };
 
 const STATUS_STYLES = {
-  want: 'border-fuchsia-500/40 bg-fuchsia-500/15 text-fuchsia-300',
-  ready_to_sell: 'border-rose-500/40 bg-rose-500/15 text-rose-300',
-  done: 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300',
+  want: 'border-fuchsia-400/50 bg-fuchsia-500/20 text-fuchsia-200',
+  queued: 'border-indigo-400/50 bg-indigo-500/20 text-indigo-200',
+  farming: 'border-cyan-400/50 bg-cyan-500/20 text-cyan-200',
+  crafting: 'border-amber-400/50 bg-amber-500/20 text-amber-200',
+  leveling: 'border-violet-400/50 bg-violet-500/20 text-violet-200',
+  ready_to_sell: 'border-rose-400/50 bg-rose-500/20 text-rose-200',
+  done: 'border-emerald-400/50 bg-emerald-500/20 text-emerald-200',
 };
 
 const PRIORITY_DOT = {
@@ -389,14 +393,12 @@ function QuickAddBar({
   const [modRankMax, setModRankMax] = useState(10);
   const [fodderRank, setFodderRank] = useState(0);
 
-  // Sync category when switching between tabs if user hasn't manually changed it or started typing
   useEffect(() => {
     if (!categoryTouched && !title.trim()) {
       setCategory(defaultCategory);
     }
   }, [defaultCategory, categoryTouched, title]);
 
-  // All known tags ranked by usage across existing items + default tags
   const knownTagPool = useMemo(() => {
     const counts = new Map();
     existingItems.forEach((item) => {
@@ -412,7 +414,6 @@ function QuickAddBar({
       .map(([tag, count]) => ({ tag, count }));
   }, [existingItems, defaultTags]);
 
-  // Live tag predictions under the tag input
   const predictedTags = useMemo(() => {
     const q = tagInput.trim().replace(/^#/, '').toLowerCase();
     if (!q) return [];
@@ -422,7 +423,6 @@ function QuickAddBar({
       .slice(0, 6);
   }, [tagInput, knownTagPool, tags]);
 
-  // Live title & metadata predictions under the title input
   const titlePredictions = useMemo(() => {
     const q = title.trim().toLowerCase();
     if (q.length < 2) return null;
@@ -432,7 +432,6 @@ function QuickAddBar({
       return hay.includes(q);
     });
 
-    // Keyword heuristics + matches from existing items
     const suggestedTagSet = new Set();
     const categoryScores = new Map();
 
@@ -492,7 +491,11 @@ function QuickAddBar({
   const handleTagKeyDown = (e) => {
     if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault();
-      if (predictedTags.length > 0 && tagInput.trim() && predictedTags[0].tag.toLowerCase().startsWith(tagInput.trim().replace(/^#/, '').toLowerCase())) {
+      if (
+        predictedTags.length > 0 &&
+        tagInput.trim() &&
+        predictedTags[0].tag.toLowerCase().startsWith(tagInput.trim().replace(/^#/, '').toLowerCase())
+      ) {
         addTag(predictedTags[0].tag);
       } else {
         addTag(tagInput);
@@ -550,9 +553,10 @@ function QuickAddBar({
     const trimmedTitle = title.trim();
     if (!trimmedTitle) return;
     const pendingTag = tagInput.trim().replace(/^#/, '');
-    const finalTags = pendingTag && !tags.some((t) => t.toLowerCase() === pendingTag.toLowerCase())
-      ? [...tags, pendingTag]
-      : tags;
+    const finalTags =
+      pendingTag && !tags.some((t) => t.toLowerCase() === pendingTag.toLowerCase())
+        ? [...tags, pendingTag]
+        : tags;
     const now = new Date().toISOString();
 
     onAddItem({
@@ -596,7 +600,6 @@ function QuickAddBar({
               className="w-full rounded-lg border border-[#263144] bg-[#0b0e14] px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-[#d4af37] focus:outline-none"
             />
 
-            {/* Live Title / Filter Prediction Strip */}
             {titlePredictions && (
               <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-[#263144]/90 bg-[#0b0e14]/90 px-2.5 py-1.5 text-[11px]">
                 <span className="inline-flex items-center gap-1 text-slate-400 mr-0.5">
@@ -659,11 +662,14 @@ function QuickAddBar({
             </select>
             <select
               value={status}
+              style={{ colorScheme: 'dark' }}
               onChange={(e) => setStatus(e.target.value)}
-              className="rounded-lg border border-[#263144] bg-[#0b0e14] px-3 py-2.5 text-sm text-slate-200 focus:border-[#d4af37] focus:outline-none"
+              className={`rounded-lg border px-3 py-2.5 text-sm font-medium bg-[#0b0e14] focus:border-[#d4af37] focus:outline-none ${
+                STATUS_STYLES[status] || 'border-[#263144] text-slate-200'
+              }`}
             >
               {STATUS_OPTIONS.map((s) => (
-                <option key={s.id} value={s.id}>{s.label}</option>
+                <option key={s.id} value={s.id} className="bg-[#0b0e14] text-slate-200">{s.label}</option>
               ))}
             </select>
             <select
@@ -704,7 +710,6 @@ function QuickAddBar({
           </div>
         </div>
 
-        {/* Inline Tags + Prediction Box + Editable Default Tags */}
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1.5 text-xs text-slate-400">
@@ -763,7 +768,6 @@ function QuickAddBar({
             </div>
           </div>
 
-          {/* Live Tag Autocomplete / Prediction Box Under Tag Input */}
           {predictedTags.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-[#263144]/90 bg-[#0b0e14]/90 px-2.5 py-1.5 text-[11px]">
               <span className="text-slate-400">Matching tags:</span>
@@ -781,7 +785,6 @@ function QuickAddBar({
             </div>
           )}
 
-          {/* Default Quick-Pick Tags Editor */}
           {editingDefaultTags && (
             <div className="rounded-lg border border-[#d4af37]/35 bg-[#0b0e14]/90 p-2.5 space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -980,10 +983,17 @@ function QuickAddBar({
 function ItemCard({ item, onUpdateItem, onDeleteItem, onTagClick, compact = false }) {
   const [expanded, setExpanded] = useState(false);
   const [newStep, setNewStep] = useState('');
+  const [editingStepId, setEditingStepId] = useState(null);
+  const [editingStepText, setEditingStepText] = useState('');
+  const [templateCategory, setTemplateCategory] = useState(item.category || 'warframe');
 
   const [isEditing, setIsEditing] = useState(false);
   const [tagDraft, setTagDraft] = useState('');
   const [draft, setDraft] = useState(null);
+
+  useEffect(() => {
+    setTemplateCategory(item.category || 'warframe');
+  }, [item.category]);
 
   const catInfo = CATEGORIES.find((c) => c.id === item.category) || CATEGORIES[5];
   const checklist = item.checklist || [];
@@ -1068,6 +1078,64 @@ function ItemCard({ item, onUpdateItem, onDeleteItem, onTagClick, compact = fals
     onUpdateItem(item.id, {
       checklist: checklist.map((s) => (s.id === stepId ? { ...s, done: !s.done } : s)),
     });
+  };
+
+  const startEditingStep = (step) => {
+    setEditingStepId(step.id);
+    setEditingStepText(step.text);
+  };
+
+  const saveEditingStep = (stepId) => {
+    const trimmed = editingStepText.trim();
+    if (!trimmed) return;
+    onUpdateItem(item.id, {
+      checklist: checklist.map((s) => (s.id === stepId ? { ...s, text: trimmed } : s)),
+    });
+    setEditingStepId(null);
+    setEditingStepText('');
+  };
+
+  const deleteStep = (stepId) => {
+    if (editingStepId === stepId) {
+      setEditingStepId(null);
+      setEditingStepText('');
+    }
+    onUpdateItem(item.id, {
+      checklist: checklist.filter((s) => s.id !== stepId),
+    });
+  };
+
+  const applyTemplateToExisting = (mode = 'append') => {
+    const tpl = CHECKLIST_TEMPLATES[templateCategory] || [];
+    if (tpl.length === 0) return;
+
+    if (mode === 'replace') {
+      onUpdateItem(item.id, {
+        checklist: tpl.map((text, idx) => ({
+          id: `tpl-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 5)}`,
+          text,
+          done: false,
+        })),
+      });
+      setEditingStepId(null);
+      setEditingStepText('');
+      return;
+    }
+
+    const existingTexts = new Set(checklist.map((s) => s.text.trim().toLowerCase()));
+    const additions = tpl
+      .filter((text) => !existingTexts.has(text.trim().toLowerCase()))
+      .map((text, idx) => ({
+        id: `tpl-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 5)}`,
+        text,
+        done: false,
+      }));
+
+    if (additions.length > 0) {
+      onUpdateItem(item.id, {
+        checklist: [...checklist, ...additions],
+      });
+    }
   };
 
   const addStep = (e) => {
@@ -1440,17 +1508,106 @@ function ItemCard({ item, onUpdateItem, onDeleteItem, onTagClick, compact = fals
                 </div>
               )}
 
+              {/* Load Checklist Template into Existing Item */}
+              <div className="flex flex-wrap items-center gap-1.5 rounded-lg bg-[#0b0e14]/60 px-2 py-1.5 text-[11px]">
+                <Sparkles className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                <select
+                  value={templateCategory}
+                  onChange={(e) => setTemplateCategory(e.target.value)}
+                  className="rounded border border-[#263144] bg-[#131822] px-2 py-0.5 text-[11px] text-slate-200 focus:border-cyan-500 focus:outline-none"
+                >
+                  {CATEGORIES.map((c) => (
+                    <option key={c.id} value={c.id}>{c.label} Template</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => applyTemplateToExisting('append')}
+                  className="rounded border border-cyan-500/40 bg-cyan-500/10 px-2 py-0.5 font-medium text-cyan-300 hover:bg-cyan-500/20"
+                >
+                  + Add Steps
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyTemplateToExisting('replace')}
+                  title="Replace current checklist with this template"
+                  className="rounded border border-[#263144] bg-[#131822] px-2 py-0.5 text-slate-300 hover:border-amber-500/40 hover:text-amber-300"
+                >
+                  Replace
+                </button>
+              </div>
+
               <ul className="space-y-1">
                 {checklist.map((step) => (
-                  <li key={step.id}>
-                    <button
-                      type="button"
-                      onClick={() => toggleStep(step.id)}
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs hover:bg-[#1a2130]/60"
-                    >
-                      {step.done ? <CheckSquare className="w-4 h-4 text-emerald-400 shrink-0" /> : <Square className="w-4 h-4 text-slate-500 shrink-0" />}
-                      <span className={step.done ? 'line-through text-slate-500' : 'text-slate-200'}>{step.text}</span>
-                    </button>
+                  <li key={step.id} className="flex items-center justify-between gap-1.5 rounded-md px-1.5 py-0.5 hover:bg-[#1a2130]/60">
+                    {editingStepId === step.id ? (
+                      <div className="flex flex-1 items-center gap-1.5">
+                        <input
+                          type="text"
+                          value={editingStepText}
+                          onChange={(e) => setEditingStepText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              saveEditingStep(step.id);
+                            } else if (e.key === 'Escape') {
+                              setEditingStepId(null);
+                              setEditingStepText('');
+                            }
+                          }}
+                          className="flex-1 rounded border border-cyan-500/50 bg-[#0b0e14] px-2 py-0.5 text-xs text-slate-100 focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => saveEditingStep(step.id)}
+                          disabled={!editingStepText.trim()}
+                          title="Save step"
+                          className="rounded p-1 text-emerald-400 hover:bg-emerald-500/15 disabled:opacity-40"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingStepId(null);
+                            setEditingStepText('');
+                          }}
+                          title="Cancel edit"
+                          className="rounded p-1 text-slate-400 hover:bg-[#1a2130] hover:text-slate-200"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => toggleStep(step.id)}
+                          className="flex items-center gap-2 text-left text-xs flex-1 min-w-0 py-0.5"
+                        >
+                          {step.done ? <CheckSquare className="w-4 h-4 text-emerald-400 shrink-0" /> : <Square className="w-4 h-4 text-slate-500 shrink-0" />}
+                          <span className={`truncate ${step.done ? 'line-through text-slate-500' : 'text-slate-200'}`}>{step.text}</span>
+                        </button>
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => startEditingStep(step)}
+                            title="Edit step"
+                            className="rounded p-1 text-slate-500 hover:bg-[#1a2130] hover:text-[#f5c451]"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteStep(step.id)}
+                            title="Delete step"
+                            className="rounded p-1 text-slate-500 hover:bg-rose-500/15 hover:text-rose-400"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </li>
                 ))}
               </ul>
