@@ -3,6 +3,7 @@ import { Plus, ChevronDown, ChevronUp, Search, Tag, X, Minus, Sparkles, ListChec
 import { CATEGORIES, STATUS_OPTIONS, PRIORITY_OPTIONS, RELIC_ERAS, RELIC_REFINEMENTS } from '../data/options.js';
 import { CHECKLIST_TEMPLATES } from '../data/checklists.js';
 import { STATUS_STYLES } from '../constants/uiStyles.js';
+import { getCatalogAutoFill, loadWarframeCatalog, searchWarframeCatalog } from '../data/warframeCatalogSearch.js';
 
 export function QuickAddBar({
   onAddItem,
@@ -33,6 +34,17 @@ export function QuickAddBar({
   const [modRankCurrent, setModRankCurrent] = useState(0);
   const [modRankMax, setModRankMax] = useState(10);
   const [fodderRank, setFodderRank] = useState(0);
+  const [catalog, setCatalog] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    loadWarframeCatalog().then((entries) => {
+      if (active) setCatalog(entries);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!categoryTouched && !title.trim()) {
@@ -72,6 +84,7 @@ export function QuickAddBar({
       const hay = [item.title, item.source, ...(item.tags || [])].filter(Boolean).join(' ').toLowerCase();
       return hay.includes(q);
     });
+    const catalogMatches = searchWarframeCatalog(catalog, q, 6);
 
     const suggestedTagSet = new Set();
     const categoryScores = new Map();
@@ -79,6 +92,12 @@ export function QuickAddBar({
     matchingItems.forEach((item) => {
       categoryScores.set(item.category, (categoryScores.get(item.category) || 0) + 2);
       (item.tags || []).forEach((t) => suggestedTagSet.add(t));
+    });
+
+    catalogMatches.forEach((entry, index) => {
+      const weight = index === 0 ? 5 : 3;
+      categoryScores.set(entry.category, (categoryScores.get(entry.category) || 0) + weight);
+      (entry.tags || []).forEach((tag) => suggestedTagSet.add(tag));
     });
 
     if (/\bprime\b/i.test(q)) suggestedTagSet.add('Prime');
@@ -109,7 +128,7 @@ export function QuickAddBar({
 
     const similarEntries = matchingItems.slice(0, 3);
 
-    if (!bestCategory && filteredSuggestedTags.length === 0 && similarEntries.length === 0) {
+    if (!bestCategory && filteredSuggestedTags.length === 0 && similarEntries.length === 0 && catalogMatches.length === 0) {
       return null;
     }
 
@@ -117,8 +136,9 @@ export function QuickAddBar({
       bestCategory: bestCategory && bestCategory !== category ? bestCategory : null,
       suggestedTags: filteredSuggestedTags,
       similarEntries,
+      catalogMatches,
     };
-  }, [title, existingItems, tags, category]);
+  }, [title, existingItems, tags, category, catalog]);
 
   const addTag = (raw) => {
     const clean = raw.trim().replace(/^#/, '');
@@ -172,6 +192,25 @@ export function QuickAddBar({
       if (entry.relicEra) setRelicEra(entry.relicEra);
       if (entry.relicRefinement) setRelicRefinement(entry.relicRefinement);
     }
+  };
+
+  const applyCatalogMatch = (entry) => {
+    const autoFill = getCatalogAutoFill(entry);
+    setTitle(autoFill.title);
+    setCategory(autoFill.category);
+    setCategoryTouched(true);
+
+    if (autoFill.tags?.length) {
+      setTags((previous) => {
+        const merged = [...previous];
+        autoFill.tags.forEach((tag) => {
+          if (!merged.some((selected) => selected.toLowerCase() === tag.toLowerCase())) merged.push(tag);
+        });
+        return merged;
+      });
+    }
+    if (autoFill.relicEra) setRelicEra(autoFill.relicEra);
+    if (autoFill.modRankMax) setModRankMax(autoFill.modRankMax);
   };
 
   const addChecklistStep = () => {
@@ -282,6 +321,19 @@ export function QuickAddBar({
                   >
                     <span className="truncate max-w-[180px]">{entry.title}</span>
                     <span className="text-[10px] text-slate-500">({CATEGORIES.find((c) => c.id === entry.category)?.label})</span>
+                  </button>
+                ))}
+
+                {titlePredictions.catalogMatches.map((entry) => (
+                  <button
+                    key={entry.slug}
+                    type="button"
+                    onClick={() => applyCatalogMatch(entry)}
+                    title="Use name and applicable fields from the bundled Warframe catalog"
+                    className="inline-flex items-center gap-1 rounded border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-cyan-200 hover:border-cyan-400/60 hover:bg-cyan-500/20"
+                  >
+                    <span className="truncate max-w-[180px]">{entry.name}</span>
+                    <span className="text-[10px] text-slate-500">Catalog</span>
                   </button>
                 ))}
               </div>
