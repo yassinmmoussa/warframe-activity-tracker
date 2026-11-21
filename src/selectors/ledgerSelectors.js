@@ -24,10 +24,15 @@ export function getAllTags(items) {
   return Array.from(tags).sort();
 }
 
-export function filterJournalItems(items, { search = '', category = 'all', status = 'all', selectedTag = '', sort = 'updated' } = {}) {
+export function getTagSuggestions(items, defaultTags = []) {
+  return [...new Set([...(defaultTags || []), ...getAllTags(items)])].sort((a, b) => a.localeCompare(b));
+}
+
+export function filterJournalItems(items, { search = '', category = 'all', status = 'all', selectedTag = '', sort = 'updated', includeCompleted = false } = {}) {
   const query = search.trim().toLowerCase();
   const priority = { high: 0, medium: 1, low: 2 };
   const filtered = items.filter((item) => {
+    if (!includeCompleted && item.status === 'done') return false;
     if (category !== 'all' && item.category !== category) return false;
     if (status !== 'all' && item.status !== status) return false;
     if (selectedTag && !(item.tags || []).includes(selectedTag)) return false;
@@ -71,6 +76,7 @@ export function filterArsenalItems(items, tab, hideCompleted) {
 export function filterModsRelicsItems(items, tab, era) {
   return items
     .filter((item) => item.category === 'mod' || item.category === 'relic')
+    .filter((item) => item.status !== 'done')
     .filter((item) => tab === 'all' || item.category === tab)
     .filter((item) => era === 'all' || (item.category === 'relic' && item.relicEra === era));
 }

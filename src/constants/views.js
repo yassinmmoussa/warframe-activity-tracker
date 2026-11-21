@@ -4,4 +4,5 @@ export const VIEWS = Object.freeze({
   ARSENAL: 'arsenal',
   MODS_RELICS: 'mods-relics',
   JOURNAL: 'all',
+  COMPLETED: 'completed',
 });

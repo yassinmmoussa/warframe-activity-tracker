@@ -7,6 +7,7 @@ import {
   getAllTags,
   getDashboardData,
   getResetProgress,
+  getTagSuggestions,
 } from './ledgerSelectors.js';
 
 describe('ledger selectors', () => {
@@ -41,14 +42,22 @@ describe('ledger selectors', () => {
     ])).toEqual(['Endo', 'Forma', 'Prime']);
   });
 
+  it('combines default and item tags for suggestions', () => {
+    expect(getTagSuggestions([{ tags: ['Prime', 'Endo'] }], ['Endo', 'Radshare']))
+      .toEqual(['Endo', 'Prime', 'Radshare']);
+  });
+
   it('filters and sorts journal items', () => {
     const items = [
       { id: '1', title: 'Gauss Prime', category: 'warframe', status: 'farming', priority: 'high', tags: ['Prime'], updatedAt: '2026-11-20T00:00:00Z' },
       { id: '2', title: 'Zakti', category: 'fodder', status: 'leveling', priority: 'medium', tags: ['Duviri'], updatedAt: '2026-11-21T00:00:00Z' },
+      { id: '3', title: 'Completed Mod', category: 'mod', status: 'done', priority: 'low', tags: ['Endo'] },
     ];
     expect(filterJournalItems(items, { search: 'gauss' }).map((item) => item.id)).toEqual(['1']);
     expect(filterJournalItems(items, { category: 'fodder', status: 'leveling' }).map((item) => item.id)).toEqual(['2']);
     expect(filterJournalItems(items, { sort: 'alpha' }).map((item) => item.title)).toEqual(['Gauss Prime', 'Zakti']);
+    expect(filterJournalItems(items).map((item) => item.id)).toEqual(['2', '1']);
+    expect(filterJournalItems(items, { includeCompleted: true, category: 'mod' }).map((item) => item.id)).toEqual(['3']);
   });
 
   it('filters reset tasks by completion and hidden state', () => {

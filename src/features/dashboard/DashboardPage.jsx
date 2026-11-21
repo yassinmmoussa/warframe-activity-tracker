@@ -1,7 +1,7 @@
 import { ArrowRight, Circle, Clock, Flame, Shield, Sparkles } from 'lucide-react';
 import { QuickAddBar } from '../../components/QuickAddBar.jsx';
 import { ItemCard } from '../../components/ItemCard.jsx';
-import { getDashboardData } from '../../selectors/ledgerSelectors.js';
+import { getDashboardData, getTagSuggestions } from '../../selectors/ledgerSelectors.js';
 import { VIEWS } from '../../constants/views.js';
 
 export function DashboardPage({
@@ -18,6 +18,7 @@ export function DashboardPage({
   onTagClick,
 }) {
   const dashboard = getDashboardData(state.items, state.resets);
+  const tagSuggestions = getTagSuggestions(state.items, state.defaultTags);
   const visibleDaily = dashboard.daily.visible;
   const visibleWeekly = dashboard.weekly.visible;
   const dailyDone = dashboard.daily.done;
@@ -104,19 +105,19 @@ export function DashboardPage({
           </div>
           <div className="rounded-xl border border-[#263144] bg-[#131822]/70 p-4 space-y-3">
             <div className="flex items-center justify-between"><h3 className="text-sm font-semibold uppercase tracking-wider text-slate-200">Mastery Fodder (Level & Sell)</h3><button type="button" onClick={() => onSetView(VIEWS.ARSENAL)} className="text-xs font-medium text-cyan-400">Arsenal →</button></div>
-            <div className="space-y-2.5">{fodderItems.slice(0, 4).map((item) => <ItemCard key={item.id} item={item} onUpdateItem={onUpdateItem} onDeleteItem={onDeleteItem} onTagClick={onTagClick} compact />)}</div>
+            <div className="space-y-2.5">{fodderItems.slice(0, 4).map((item) => <ItemCard key={item.id} item={item} onUpdateItem={onUpdateItem} onDeleteItem={onDeleteItem} tagSuggestions={tagSuggestions} onTagClick={onTagClick} compact />)}</div>
           </div>
         </div>
         <div className="space-y-5">
           <div className="rounded-xl border border-[#263144] bg-[#131822]/70 p-4 space-y-3">
             <div className="flex items-center justify-between"><h3 className="text-sm font-semibold uppercase tracking-wider text-slate-200">Active Warframe & Weapon Farms</h3><button type="button" onClick={() => onSetView(VIEWS.ARSENAL)} className="text-xs font-medium text-cyan-400">View all ({activeFarms.length}) →</button></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{activeFarms.slice(0, 4).map((item) => <ItemCard key={item.id} item={item} onUpdateItem={onUpdateItem} onDeleteItem={onDeleteItem} onTagClick={onTagClick} />)}</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{activeFarms.slice(0, 4).map((item) => <ItemCard key={item.id} item={item} onUpdateItem={onUpdateItem} onDeleteItem={onDeleteItem} tagSuggestions={tagSuggestions} onTagClick={onTagClick} />)}</div>
           </div>
         </div>
         <div className="lg:col-span-2 2xl:col-span-1 space-y-5">
           <div className="rounded-xl border border-[#263144] bg-[#131822]/70 p-4 space-y-3">
             <div className="flex items-center justify-between"><h3 className="text-sm font-semibold uppercase tracking-wider text-slate-200">Mods & Relics Focus</h3><button type="button" onClick={() => onSetView(VIEWS.MODS_RELICS)} className="text-xs font-medium text-cyan-400">View all ({modsAndRelics.length}) →</button></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{modsAndRelics.slice(0, 4).map((item) => <ItemCard key={item.id} item={item} onUpdateItem={onUpdateItem} onDeleteItem={onDeleteItem} onTagClick={onTagClick} />)}</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{modsAndRelics.slice(0, 4).map((item) => <ItemCard key={item.id} item={item} onUpdateItem={onUpdateItem} onDeleteItem={onDeleteItem} tagSuggestions={tagSuggestions} onTagClick={onTagClick} />)}</div>
           </div>
         </div>
       </div>

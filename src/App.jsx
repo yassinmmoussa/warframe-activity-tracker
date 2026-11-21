@@ -8,6 +8,7 @@ import { DashboardPage } from './features/dashboard/DashboardPage.jsx';
 import { ArsenalPage } from './features/arsenal/ArsenalPage.jsx';
 import { ModsRelicsPage } from './features/mods/ModsRelicsPage.jsx';
 import { JournalPage } from './features/journal/JournalPage.jsx';
+import { CompletedPage } from './features/journal/CompletedPage.jsx';
 import { VIEWS } from './constants/views.js';
 
 export default function App() {
@@ -19,6 +20,7 @@ export default function App() {
     handleAddItem,
     handleUpdateItem,
     handleDeleteItem,
+    handleRestoreItem,
     handleAddDefaultTag,
     handleRemoveDefaultTag,
     handleResetDefaultTags,
@@ -106,6 +108,10 @@ export default function App() {
 
         {activeView === VIEWS.JOURNAL && (
           <JournalPage state={state} selectedTag={selectedTag} setSelectedTag={setSelectedTag} onAddItem={handleAddItem} onUpdateItem={handleUpdateItem} onDeleteItem={handleDeleteItem} onAddDefaultTag={handleAddDefaultTag} onRemoveDefaultTag={handleRemoveDefaultTag} onResetDefaultTags={handleResetDefaultTags} />
+        )}
+
+        {activeView === VIEWS.COMPLETED && (
+          <CompletedPage state={state} onUpdateItem={handleUpdateItem} onRestoreItem={handleRestoreItem} />
         )}
       </main>
 

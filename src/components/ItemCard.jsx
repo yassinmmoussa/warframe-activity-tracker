@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, ChevronDown, ChevronUp, ChevronRight, Tag, Check, Trash2, Pencil, Minus, CheckSquare, Square, X, MapPin, Sparkles } from 'lucide-react';
+import { Plus, ChevronDown, ChevronUp, ChevronRight, Tag, Check, Trash2, Pencil, Minus, CheckSquare, Square, X, MapPin, Sparkles, RotateCcw } from 'lucide-react';
 import { CATEGORIES, STATUS_OPTIONS, PRIORITY_OPTIONS, RELIC_ERAS, RELIC_REFINEMENTS } from '../data/options.js';
 import { CHECKLIST_TEMPLATES } from '../data/checklists.js';
 import { CATEGORY_BADGES, STATUS_STYLES, PRIORITY_DOT } from '../constants/uiStyles.js';
 
-export function ItemCard({ item, onUpdateItem, onDeleteItem, onTagClick, compact = false }) {
+export function ItemCard({ item, onUpdateItem, onDeleteItem, onRestoreItem, onTagClick, tagSuggestions = [], compact = false }) {
   const [expanded, setExpanded] = useState(false);
   const [newStep, setNewStep] = useState('');
   const [editingStepId, setEditingStepId] = useState(null);
@@ -24,6 +24,10 @@ export function ItemCard({ item, onUpdateItem, onDeleteItem, onTagClick, compact
   const doneCount = checklist.filter((s) => s.done).length;
   const totalCount = checklist.length;
   const progressPct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+  const matchingTagSuggestions = tagSuggestions
+    .filter((tag) => !draft?.tags.some((selected) => selected.toLowerCase() === tag.toLowerCase()))
+    .filter((tag) => !tagDraft || tag.toLowerCase().includes(tagDraft.replace(/^#/, '').toLowerCase()))
+    .slice(0, 8);
 
   const startEditing = () => {
     setDraft({
@@ -355,6 +359,7 @@ export function ItemCard({ item, onUpdateItem, onDeleteItem, onTagClick, compact
                 type="text"
                 value={tagDraft}
                 onChange={(e) => setTagDraft(e.target.value)}
+                list={`tag-suggestions-${item.id}`}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ',') {
                     e.preventDefault();
@@ -364,6 +369,9 @@ export function ItemCard({ item, onUpdateItem, onDeleteItem, onTagClick, compact
                 placeholder="Add tag + Enter..."
                 className="flex-1 rounded-md border border-[#263144] bg-[#0b0e14] px-2 py-1 text-xs text-slate-200 placeholder-slate-500"
               />
+              <datalist id={`tag-suggestions-${item.id}`}>
+                {matchingTagSuggestions.map((tag) => <option key={tag} value={tag} />)}
+              </datalist>
               <button
                 type="button"
                 onClick={() => handleAddDraftTag(tagDraft)}
@@ -469,14 +477,28 @@ export function ItemCard({ item, onUpdateItem, onDeleteItem, onTagClick, compact
                 >
                   <Pencil className="w-3.5 h-3.5" />
                 </button>
-                <button
-                  type="button"
-                  onClick={() => onDeleteItem(item.id)}
-                  title="Delete card"
-                  className="rounded-md p-1 text-slate-500 hover:bg-rose-500/15 hover:text-rose-400"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+                {onRestoreItem ? (
+                  <button
+                    type="button"
+                    onClick={() => onRestoreItem(item.id)}
+                    title="Restore to active tasks"
+                    aria-label={`Restore ${item.title} to active tasks`}
+                    className="rounded-md p-1 text-slate-400 hover:bg-emerald-500/15 hover:text-emerald-300"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  </button>
+                ) : (
+                  onDeleteItem && item.status !== 'done' && (
+                    <button
+                      type="button"
+                      onClick={() => onDeleteItem(item.id)}
+                      title="Delete card"
+                      className="rounded-md p-1 text-slate-500 hover:bg-rose-500/15 hover:text-rose-400"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )
+                )}
               </div>
             </div>
           </div>

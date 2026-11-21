@@ -5,7 +5,7 @@ export function useFilteredJournal(items, filters) {
   const allTags = useMemo(() => getAllTags(items), [items]);
   const filteredItems = useMemo(
     () => filterJournalItems(items, filters),
-    [items, filters.search, filters.category, filters.status, filters.selectedTag, filters.sort]
+    [items, filters.search, filters.category, filters.status, filters.selectedTag, filters.sort, filters.includeCompleted]
   );
   return { allTags, filteredItems };
 }

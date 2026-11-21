@@ -79,18 +79,36 @@ export function useLedger() {
   const handleUpdateItem = (id, patch) => {
     setState((previous) => ({
       ...previous,
-      items: previous.items.map((item) =>
-        item.id === id ? { ...item, ...patch, updatedAt: new Date().toISOString() } : item
-      ),
+      items: previous.items.map((item) => {
+        if (item.id !== id) return item;
+        const updatedItem = { ...item, ...patch, updatedAt: new Date().toISOString() };
+        if (item.status !== 'done' && patch.status === 'done') {
+          updatedItem.statusBeforeCompletion = item.status;
+        } else if (item.status === 'done' && patch.status && patch.status !== 'done') {
+          delete updatedItem.statusBeforeCompletion;
+        }
+        return updatedItem;
+      }),
     }));
   };
 
   const handleDeleteItem = (id) => {
+    if (state.items.some((item) => item.id === id && item.status === 'done')) {
+      notify('Completed items cannot be deleted; restore the item first', 'error');
+      return;
+    }
     setState((previous) => ({
       ...previous,
       items: previous.items.filter((item) => item.id !== id),
     }));
     notify('Item removed');
+  };
+
+  const handleRestoreItem = (id) => {
+    const item = state.items.find((entry) => entry.id === id);
+    if (!item || item.status !== 'done') return;
+    handleUpdateItem(id, { status: item.statusBeforeCompletion || 'want' });
+    notify('Restored item');
   };
 
   const handleAddDefaultTag = (tag) => {
@@ -245,6 +263,7 @@ export function useLedger() {
     handleAddItem,
     handleUpdateItem,
     handleDeleteItem,
+    handleRestoreItem,
     handleAddDefaultTag,
     handleRemoveDefaultTag,
     handleResetDefaultTags,

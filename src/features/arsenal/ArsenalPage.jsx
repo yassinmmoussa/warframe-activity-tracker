@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { QuickAddBar } from '../../components/QuickAddBar.jsx';
 import { ItemCard } from '../../components/ItemCard.jsx';
-import { filterArsenalItems } from '../../selectors/ledgerSelectors.js';
+import { filterArsenalItems, getTagSuggestions } from '../../selectors/ledgerSelectors.js';
 
 export function ArsenalPage({ state, onAddItem, onUpdateItem, onDeleteItem, onAddDefaultTag, onRemoveDefaultTag, onResetDefaultTags, onTagClick }) {
   const [tab, setTab] = useState('all');
-  const [hideCompleted, setHideCompleted] = useState(false);
+  const [hideCompleted, setHideCompleted] = useState(true);
   const tabs = [
     { id: 'all', label: 'All Arsenal' },
     { id: 'warframe', label: 'Warframes' },
@@ -13,6 +13,7 @@ export function ArsenalPage({ state, onAddItem, onUpdateItem, onDeleteItem, onAd
     { id: 'fodder', label: 'Mastery Fodder' },
   ];
   const items = filterArsenalItems(state.items, tab, hideCompleted);
+  const tagSuggestions = getTagSuggestions(state.items, state.defaultTags);
 
   return (
     <div className="space-y-5">
@@ -28,7 +29,7 @@ export function ArsenalPage({ state, onAddItem, onUpdateItem, onDeleteItem, onAd
         </label>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3.5">
-        {items.map((item) => <ItemCard key={item.id} item={item} onUpdateItem={onUpdateItem} onDeleteItem={onDeleteItem} onTagClick={onTagClick} />)}
+        {items.map((item) => <ItemCard key={item.id} item={item} onUpdateItem={onUpdateItem} onDeleteItem={onDeleteItem} tagSuggestions={tagSuggestions} onTagClick={onTagClick} />)}
       </div>
     </div>
   );

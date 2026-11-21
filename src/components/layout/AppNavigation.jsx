@@ -1,4 +1,4 @@
-import { LayoutDashboard, CalendarClock, Swords, Gem, BookOpen } from 'lucide-react';
+import { LayoutDashboard, CalendarClock, Swords, Gem, BookOpen, Archive } from 'lucide-react';
 import { VIEWS } from '../../constants/views.js';
 
 const NAV_ITEMS = [
@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { id: VIEWS.ARSENAL, label: 'Arsenal & Fodder', icon: Swords },
   { id: VIEWS.MODS_RELICS, label: 'Mods & Relics', icon: Gem },
   { id: VIEWS.JOURNAL, label: 'Journal', icon: BookOpen },
+  { id: VIEWS.COMPLETED, label: 'Completed', icon: Archive },
 ];
 
 export function AppNavigation({ activeView, setActiveView }) {
